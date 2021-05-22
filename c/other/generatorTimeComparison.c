@@ -28,7 +28,6 @@ void time_generator()
 
 void time_gauss()
 {
-	char myString[256];
     int iterations = 50000;
     struct gaussGenHelper _normState;
     float data;
