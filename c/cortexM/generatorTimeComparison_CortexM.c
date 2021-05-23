@@ -32,42 +32,29 @@
 #include "m1_for_arty.h" // Project specific header
 #include "xil_printf.h"
 #include "generators.h"
+#include "helpers.h"
 
 /*******************************************************************/
 
 #define STCTRL      (*( (volatile uint32_t *) 0xE000E010 ))
 #define STRELOAD    (*( (volatile uint32_t *) 0xE000E014 ))
 #define STCURR      (*( (volatile uint32_t *) 0xE000E018 ))  
-#define PI 3.14159265359
-#define TWO_PI 6.28318530718
 
 #define SYSTEM_CLOCK	(100000000UL) /*	HCLK frequency	*/
-
-
-void wait(int num)
-{
-	for (int i=0; i < num; i++)
-		i++;
-}
-
-void newLine()
-{
-	print("\r\n");
-}
 
 void time_generator()
 {
     int iterations = 1000;
 	char myString[256];
     int taps[3] = {0, 3, 31};
-    struct genHelper _generator;
-    initializeGenerator(&_generator, 32, 8, taps, 127.63402f, 73.727015f);
+    struct genState _generator;
+    initializeGenerator(&_generator, 32, 8, taps, 517.21916f, 150.88634811f);
     seedGenerator(&_generator, ((long long)1<<32) - 1);
     float data;
     uint32_t start, end;
 	
 	STCTRL = (1<<0) | (1<<2);
-	wait(1000);
+	wait(100);
     start = STCURR;
 
     for (int i=0; i<iterations; i++)
@@ -88,7 +75,7 @@ void time_gauss()
 {
 	char myString[256];
     int iterations = 1000;
-    struct gaussGenHelper _normState;
+    struct gaussGenState _normState;
     float data;
     uint32_t start, stop;
 
@@ -98,7 +85,7 @@ void time_gauss()
 
 	
 	STCTRL = (1<<0) | (1<<2);
-	wait(1000);
+	wait(100);
     start = STCURR;
 
     for (int i=0; i<iterations; i++)
@@ -116,7 +103,7 @@ void time_gauss()
 
 int main(void){
 	SystemInit();
-	STRELOAD = 16000000;
+	STRELOAD = 0x00FFFFFF;
 	
 	time_gauss();
 	time_generator();

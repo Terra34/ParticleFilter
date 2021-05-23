@@ -1,7 +1,7 @@
 #ifndef GENERATORS_H_
 #define GENERATORS_H_
 
-struct genHelper {
+struct genState {
     int *taps;
 	int current_tap;
 	int _tapCnt;
@@ -17,7 +17,7 @@ struct genHelper {
     long long mask;
 };
 
-struct gaussGenHelper 
+struct gaussGenState 
 {
     float gauss;
 	int has_gauss;
@@ -25,12 +25,12 @@ struct gaussGenHelper
 
 long long checkBit(long long num, int bit);
 int arrayContains(int *array, int length, int number);
-void lfsr(struct genHelper *helper);
-float generate(struct genHelper *helper);
-void initializeGenerator(struct genHelper *helper, int N, int M, int *taps, float mean, float std);
-void seedGenerator(struct genHelper *helper, long long seed);
-float gauss(struct gaussGenHelper *state);
-void initializeGauss(struct gaussGenHelper *state);
+void lfsr(struct genState *state);
+float generate(struct genState *state);
+void initializeGenerator(struct genState *state, int N, int M, int *taps, float mean, float std);
+void seedGenerator(struct genState *state, long long seed);
+float gauss(struct gaussGenState *state);
+void initializeGauss(struct gaussGenState *state);
 
 
 #endif

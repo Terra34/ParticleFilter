@@ -38,9 +38,9 @@
 
 /*******************************************************************/
 
-#define BUFFER_SIZE		36
-
-void BufferFullHandler(u8 *buff, int bufflen, unsigned int *received, float *meas, int measLen);
+#define STCTRL      (*( (volatile uint32_t *) 0xE000E010 ))
+#define STRELOAD    (*( (volatile uint32_t *) 0xE000E014 ))
+#define STCURR      (*( (volatile uint32_t *) 0xE000E018 ))  
 
 int main(void){
     // filter parameters
@@ -67,26 +67,12 @@ int main(void){
 	int taps[3] = {0, 3, 31};
 	//struct gaussGenState _State;
 	
-	// Uart read data variables
-	char myString[256];
-	int Status;
-	unsigned int ReceivedCount = 0;
-	XUartLite uart;
-	u8 RecvBuffer[BUFFER_SIZE];
+    char myString[256];
+    SystemInit();
+	STRELOAD = 0x00FFFFFF;
+
 	float meas[9];
-	
-	SystemInit();
-	
-	// Initialize UART
-	Status = XUartLite_Initialize(&uart, XPAR_AXI_UARTLITE_0_DEVICE_ID);
-	if (Status != XST_SUCCESS) {
-		return XST_FAILURE;
-	}
-	
-	Status = XUartLite_SelfTest(&uart);
-	if (Status != XST_SUCCESS) {
-		return XST_FAILURE;
-	}
+    uint32_t start, end;
 
     // Filter initialization
     srand(101);
@@ -95,62 +81,35 @@ int main(void){
 	seedGenerator(&_State, ((long long)1<<32) - 1);
 	
 	//initializeGauss(&_State);
-	
-	while (1){
-		// wait for data from UART
-		ReceivedCount += XUartLite_Recv(&uart,
-							RecvBuffer + ReceivedCount,
-							BUFFER_SIZE - ReceivedCount);
-		
-		if (ReceivedCount == BUFFER_SIZE)
-		{
-			BufferFullHandler(RecvBuffer, BUFFER_SIZE, &ReceivedCount, meas, 9);
-			pitchRoll = getPitchRoll(meas);
-			
-			// Predict + Update step
-			predictUpdate(particles, weights, meas, pitchRoll, &sum_weights, numParticles, predict_std, t, &_State);	
-			
-			// Resample + Estimate step
-			resampleEstimate(&particles, &copyParticles, weights, sum_weights, numParticles, resetWeights, filterState);
-			yaw = getYaw(filterState, meas+6);
-			
-			
-			sprintf(myString, "%f,%f,%f", filterState[0], filterState[1], yaw);
-			print(myString);
-			newLine();
-		}
-	}
-}
 
+    pitchRoll = getPitchRoll(meas);
+    
+    STCTRL = (1<<0) | (1<<2);
+	wait(100);
+    start = STCURR;
+    
+    // Predict + Update step
+    predictUpdate(particles, weights, meas, pitchRoll, &sum_weights, numParticles, predict_std, t, &_State);	
+    
+    end = STCURR;
+	STCTRL = (0<<0);
 
-void BufferFullHandler(u8 *buff, int bufflen, unsigned int *received, float *meas, int measLen)
-{
-	char myString[128];
-	int iterations;
-	
-	if (bufflen%4)
-	{
-		print("Buffer length is not a multiple of 4! No bytes handled.");
-		newLine();
-		*received = 0;
-		return;
-	}
-	
-	iterations = bufflen/4;
-	
-	if (iterations != measLen)
-	{
-		sprintf(myString, "Need to receive exactly %d bytes - %d received! No bytes handled.", measLen, iterations); 
-		print(myString);
-		newLine();
-		*received = 0;
-		return;
-	}
-	
-	for (int i=0; i<iterations; i++){
-		meas[i] = BytesToFloat(buff);
-		buff += 4;
-	}
-	
-	*received = 0;
+    sprintf(myString, "Predict + Update time elapsed: %fms", (float)(start-end)/SYSTEM_CLOCK*1000);
+	print(myString);
+	newLine();
+
+    STCTRL = (1<<0) | (1<<2);
+	wait(100);
+    start = STCURR;
+
+    // Resample + Estimate step
+    resampleEstimate(&particles, &copyParticles, weights, sum_weights, numParticles, resetWeights, filterState);
+    yaw = getYaw(filterState, meas+6);
+
+    end = STCURR;
+	STCTRL = (0<<0);
+
+    sprintf(myString, "Resample + Estimate time elapsed: %fms", (float)(start-end)/SYSTEM_CLOCK*1000);
+	print(myString);
+	newLine();
 }

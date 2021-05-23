@@ -25,70 +25,70 @@ int arrayContains(int *array, int length, int number)
     return 0;
 }
 
-void lfsr(struct genHelper *helper)
+void lfsr(struct genState *state)
 {
-    long long A_next = 0, A_upper;
-    helper->current = helper->current & helper->mask;
-    for (int i=0; i < helper->N - 1; i++)
+    long long A_next = 0, A_upper, A;
+    A = state->current & state->mask;
+    A_upper = checkBit(A, state->N - 1);
+	for (int i=0; i < state->N - 1; i++)
     {
-        A_upper = checkBit(helper->current, helper->N - 1);
-        //if (arrayContains(helper->taps, helper->tapsLen, i))
-        //    A_next += (checkBit(helper->current, i) ^ A_upper) << ((i + 1) % helper->N);
-		if (i == helper->current_tap)
+        //if (arrayContains(state->taps, state->tapsLen, i))
+        //    A_next += (checkBit(state->current, i) ^ A_upper) << ((i + 1) % state->N);
+		if (i == state->current_tap)
 		{
-			A_next += (checkBit(helper->current, i) ^ A_upper) << ((i + 1) % helper->N);
-			helper->current_tap = helper->taps[++helper->_tapCnt];
+			A_next += (checkBit(A, i) ^ A_upper) << ((i + 1) % state->N);
+			state->current_tap = state->taps[++state->_tapCnt];
 		}
         else
-            A_next += checkBit(helper->current, i) << ((i + 1) % helper->N);
-		// if helper->N is a power of 2 then a faster way would be ((i + 1) & (helper->N - 1))
+            A_next += checkBit(A, i) << ((i + 1) % state->N);
+		// if state->N is a power of 2 then a faster way would be ((i + 1) & (state->N - 1))
     }
     A_next += A_upper;
 
-    helper->current = A_next;
-	helper->current_tap = helper->taps[0];
-	helper->_tapCnt = 0;
+    state->current = A_next;
+	state->current_tap = state->taps[0];
+	state->_tapCnt = 0;
 }
 
-float generate(struct genHelper *helper)
+float generate(struct genState *state)
 {
-    lfsr(helper);
-    return (((( helper->current & helper->shifted ) + 
-            ( (helper->current & (helper->shifted<<helper->M))>>helper->M ) +
-            ( (helper->current & (helper->shifted<<helper->twoM))>>helper->twoM ) +
-            ( (helper->current & (helper->shifted<<helper->threeM))>>helper->threeM )
-            ) & helper->shifted) - helper->mean) / helper->std;
+    lfsr(state);
+	return 	((state->current & state->shifted) +
+			((state->current & (state->shifted<<state->M))>>state->M) +
+			((state->current & (state->shifted<<state->twoM))>>state->twoM) +
+			((state->current & (state->shifted<<state->threeM))>>state->threeM)
+				- state->mean) / state->std;
 }
 
-void initializeGenerator(struct genHelper *helper, int N, int M, int *taps, float mean, float std)
+void initializeGenerator(struct genState *state, int N, int M, int *taps, float mean, float std)
 {
 	// taps needs to be a sorted array (ascending) for example: [0 1 5 31]
     // maybe include sorting in initialization
-    helper->N = N;
-    helper->M = M;
-    helper->taps = taps;
-	helper->current_tap = taps[0];
-	helper->_tapCnt = 0;
-    helper->twoM = 2*M;
-    helper->threeM = 3*M;
-    helper->mask = ((long long)1<<N) - 1;
-    helper->shifted = ((long long)1<<M) - 1;
-	helper->mean = mean;
-	helper->std = std;
+    state->N = N;
+    state->M = M;
+    state->taps = taps;
+	state->current_tap = taps[0];
+	state->_tapCnt = 0;
+    state->twoM = 2*M;
+    state->threeM = 3*M;
+    state->mask = ((long long)1<<N) - 1;
+    state->shifted = ((long long)1<<M) - 1;
+	state->mean = mean;
+	state->std = std;
 }
 
-void seedGenerator(struct genHelper *helper, long long seed)
+void seedGenerator(struct genState *state, long long seed)
 {
-    helper->current = seed;
+    state->current = seed;
 }
 
-void initializeGauss(struct gaussGenHelper *state)
+void initializeGauss(struct gaussGenState *state)
 {
     state->has_gauss = 0;
     state->gauss = 0.0;
 }
 
-float gauss(struct gaussGenHelper *state)
+float gauss(struct gaussGenState *state)
 {
     if (state->has_gauss){
         const float temp = state->gauss;
