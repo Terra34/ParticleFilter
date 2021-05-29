@@ -1,6 +1,8 @@
 #ifndef GENERATORS_H_
 #define GENERATORS_H_
 
+#define M_PI 3.14159265359
+
 struct genState {
     int *taps;
 	int current_tap;
@@ -23,14 +25,19 @@ struct gaussGenState
 	int has_gauss;
 };
 
+void setSeed(unsigned int seed);
 long long checkBit(long long num, int bit);
 int arrayContains(int *array, int length, int number);
 void lfsr(struct genState *state);
 float generate(struct genState *state);
 void initializeGenerator(struct genState *state, int N, int M, int *taps, float mean, float std);
 void seedGenerator(struct genState *state, long long seed);
-float gauss(struct gaussGenState *state);
 void initializeGauss(struct gaussGenState *state);
-
+float uniform(void);
+float gauss(struct gaussGenState *state);
+float gaussbm(struct gaussGenState *state);
+float gaussInv(void);
+float ziggurat(void);
+void zigset(void);
 
 #endif

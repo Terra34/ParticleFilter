@@ -1,55 +1,77 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 #include "../headers/generators.h"
 
-void time_generator()
+int main(void)
 {
-    int iterations = 50000;
+    float data;
+    int niter = 1000000;
+    struct gaussGenState state;
     int taps[3] = {0, 3, 31};
-    struct genHelper _generator;
+    struct genState _generator;
     initializeGenerator(&_generator, 32, 8, taps, 127.63402f, 73.727015f);
     seedGenerator(&_generator, ((long long)1<<32) - 1);
-    float data;
     clock_t start, end;
-	
-    start = clock();
 
-    for (int i=0; i<iterations; i++)
+    initializeGauss(&state);
+
+    start = clock();
+    for(int i=0; i<niter; i++)
+    {
+        data = gauss(&state);
+    }
+    end = clock();
+
+    printf("Marsaglia time elapsed: %fms\n", (float)(end-start)/CLOCKS_PER_SEC);
+
+    start = clock();
+    for(int i=0; i<niter; i++)
+    {
+        data = gaussbm(&state);
+    }
+    end = clock();
+
+    printf("BoxMuller time elapsed: %fms\n", (float)(end-start)/CLOCKS_PER_SEC);
+    
+
+    start = clock();
+    for(int i=0; i<niter; i++)
+    {
+        data = gaussInv();
+    }
+    end = clock();
+
+    printf("Inverse time elapsed: %fms\n", (float)(end-start)/CLOCKS_PER_SEC);
+    
+    zigset();
+    start = clock();
+    for(int i=0; i<1000000; i++)
+    {
+        data = ziggurat();
+    }
+    end = clock();
+
+    printf("Ziggurat time elapsed: %fms\n", (float)(end-start)/CLOCKS_PER_SEC);
+
+    start = clock();
+    for(int i=0; i<niter; i++)
+    {
+        data = uniform();
+    }
+    end = clock();
+
+    printf("Uniform time elapsed: %fms\n", (float)(end-start)/CLOCKS_PER_SEC);
+
+    start = clock();
+    for(int i=0; i<niter; i++)
     {
         data = generate(&_generator);
     }
-	
     end = clock();
 
-    printf("LFSR generator clocks elapsed: %fms\n", (float)(end-start)/CLOCKS_PER_SEC);
-    return;
-}
-
-void time_gauss()
-{
-    int iterations = 50000;
-    struct gaussGenHelper _normState;
-    float data;
-    clock_t start, end;
-
-    initializeGauss(&_normState);
-
-    srand(100);
-
-    start = clock();
-    for (int i=0; i<iterations; i++)
-    {
-        data = gauss(&_normState);
-    }
-    end = clock();
-
-    printf("Gauss generator clocks elapsed: %fms\n", (float)(end-start)/CLOCKS_PER_SEC);
-}
-
-int main(void){
-	time_gauss();
-	time_generator();
-
+    printf("LFSR time elapsed: %fms\n", (float)(end-start)/CLOCKS_PER_SEC);
+    
     return 0;
 }

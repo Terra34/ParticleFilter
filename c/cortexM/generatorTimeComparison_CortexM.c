@@ -1,21 +1,4 @@
 /*
- * Copyright:
- * ----------------------------------------------------------------
- * This confidential and proprietary software may be used only as
- * authorised by a licensing agreement from ARM Limited
- *   (C) COPYRIGHT 2014, 2016 ARM Limited
- *       ALL RIGHTS RESERVED
- * The entire notice above must be reproduced on all authorised
- * copies and copies may only be made to the extent permitted
- * by a licensing agreement from ARM Limited.
- * ----------------------------------------------------------------
- * File:     main.c
- * Release Information : Cortex-M1 DesignStart-r0p1-00rel0
- * ----------------------------------------------------------------
- *
- */
-
-/*
  * --------Included Headers--------
  */
 
@@ -33,6 +16,7 @@
 #include "xil_printf.h"
 #include "generators.h"
 #include "helpers.h"
+#include "particleFilter.h"
 
 /*******************************************************************/
 
@@ -42,69 +26,283 @@
 
 #define SYSTEM_CLOCK	(100000000UL) /*	HCLK frequency	*/
 
-void time_generator()
+void time_lfsr(int iterations)
 {
-    int iterations = 1000;
 	char myString[256];
     int taps[3] = {0, 3, 31};
-    struct genState _generator;
-    initializeGenerator(&_generator, 32, 8, taps, 517.21916f, 150.88634811f);
-    seedGenerator(&_generator, ((long long)1<<32) - 1);
+    struct genState state;
+    initializeGenerator(&state, 32, 8, taps, 517.21916f, 150.88634811f);
+    seedGenerator(&state, ((long long)1<<32) - 1);
     float data;
     uint32_t start, end;
 	
 	STCTRL = (1<<0) | (1<<2);
-	wait(100);
+	wait(10);
     start = STCURR;
 
     for (int i=0; i<iterations; i++)
     {
-        data = generate(&_generator);
+        data = generate(&state);
     }
 	newLine();
 	
     end = STCURR;
 	STCTRL = (0<<0);
 
-    sprintf(myString, "LFSR generator clocks elapsed: %fms", (float)(start-end)/SYSTEM_CLOCK*1000);
+    sprintf(myString, "LFSR generator time elapsed: %fms", (float)(start-end)/SYSTEM_CLOCK*1000);
 	print(myString);
 	newLine();
 }
 
-void time_gauss()
+void test_lfsr(int iterations, int seed)
+{
+	char myString[32];
+    float data;
+	int taps[3] = {0, 3, 31};
+    struct genState state;
+    initializeGenerator(&state, 32, 8, taps, 517.21916f, 150.88634811f);
+    seedGenerator(&state, ((long long)1<<32) - 1);
+    
+
+    for (int i=0; i<iterations; i++)
+    {
+        data = generate(&state);
+		sprintf(myString, "%f", data);
+		print(myString);
+		newLine();
+    }	
+}
+
+void time_uniform(int iterations)
 {
 	char myString[256];
-    int iterations = 1000;
-    struct gaussGenState _normState;
+	setSeed(100);
     float data;
-    uint32_t start, stop;
-
-    initializeGauss(&_normState);
-
-    srand(100);
-
+    uint32_t start, end;
 	
 	STCTRL = (1<<0) | (1<<2);
-	wait(100);
+	wait(10);
     start = STCURR;
 
     for (int i=0; i<iterations; i++)
     {
-        data = gauss(&_normState);
+        data = uniform();
     }
-
-    stop = STCURR;
+	newLine();
+	
+    end = STCURR;
 	STCTRL = (0<<0);
 
-    sprintf(myString, "Gauss generator clocks elapsed: %fms", (float)(start-stop)/SYSTEM_CLOCK*1000);
+    sprintf(myString, "Uniform(SHR3) generator time elapsed: %fms", (float)(start-end)/SYSTEM_CLOCK*1000);
 	print(myString);
 	newLine();
 }
 
+void test_uniform(int iterations, int seed)
+{
+	char myString[32];
+	setSeed(seed);
+    float data;
+
+    for (int i=0; i<iterations; i++)
+    {
+        data = uniform();
+		sprintf(myString, "%f", data);
+		print(myString);
+		newLine();
+    }	
+}
+
+void time_boxmuller(int iterations)
+{
+	char myString[256];
+	float data;
+    uint32_t start, end;
+	struct gaussGenState state;
+	setSeed(100);
+	initializeGauss(&state);
+	
+	STCTRL = (1<<0) | (1<<2);
+	wait(10);
+    start = STCURR;
+
+    for (int i=0; i<iterations; i++)
+    {
+        data = gaussbm(&state);
+    }
+	newLine();
+	
+    end = STCURR;
+	STCTRL = (0<<0);
+
+    sprintf(myString, "Box-Muller gauss generator time elapsed: %fms", (float)(start-end)/SYSTEM_CLOCK*1000);
+	print(myString);
+	newLine();
+}
+
+void test_boxmuller(int iterations, int seed)
+{
+	char myString[32];
+	setSeed(seed);
+    float data;
+	struct gaussGenState state;
+	initializeGauss(&state);
+
+    for (int i=0; i<iterations; i++)
+    {
+        data = gaussbm(&state);
+		sprintf(myString, "%f", data);
+		print(myString);
+		newLine();
+    }	
+}
+
+void time_marsaglia(int iterations)
+{
+    char myString[256];
+	float data;
+    uint32_t start, end;
+	struct gaussGenState state;
+	setSeed(100);
+	initializeGauss(&state);
+	
+	STCTRL = (1<<0) | (1<<2);
+	wait(10);
+    start = STCURR;
+
+    for (int i=0; i<iterations; i++)
+    {
+        data = gauss(&state);
+    }
+	newLine();
+	
+    end = STCURR;
+	STCTRL = (0<<0);
+
+    sprintf(myString, "Marsaglia polar gauss generator time elapsed: %fms", (float)(start-end)/SYSTEM_CLOCK*1000);
+	print(myString);
+	newLine();
+}
+
+void test_marsaglia(int iterations, int seed)
+{
+	char myString[32];
+	setSeed(seed);
+    float data;
+	struct gaussGenState state;
+	initializeGauss(&state);
+
+    for (int i=0; i<iterations; i++)
+    {
+        data = gauss(&state);
+		sprintf(myString, "%f", data);
+		print(myString);
+		newLine();
+    }	
+}
+
+void time_inverse(int iterations)
+{
+	char myString[256];
+	float data;
+    uint32_t start, end;
+	setSeed(100);
+	
+	STCTRL = (1<<0) | (1<<2);
+	wait(10);
+    start = STCURR;
+
+    for (int i=0; i<iterations; i++)
+    {
+        data = gaussInv();
+    }
+	newLine();
+	
+    end = STCURR;
+	STCTRL = (0<<0);
+
+    sprintf(myString, "Inverse cumulative distribution approximation gauss generator time elapsed: %fms", (float)(start-end)/SYSTEM_CLOCK*1000);
+	print(myString);
+	newLine();
+}
+
+void test_inverse(int iterations, int seed)
+{
+	char myString[32];
+	setSeed(seed);
+    float data;
+
+    for (int i=0; i<iterations; i++)
+    {
+        data = gaussInv();
+		sprintf(myString, "%f", data);
+		print(myString);
+		newLine();
+    }	
+}
+
+void time_ziggurat(int iterations)
+{
+	char myString[256];
+	float data;
+    uint32_t start, end;
+	setSeed(100);
+	zigset();
+	
+	STCTRL = (1<<0) | (1<<2);
+	wait(10);
+    start = STCURR;
+
+    for (int i=0; i<iterations; i++)
+    {
+        data = ziggurat();
+    }
+	newLine();
+	
+    end = STCURR;
+	STCTRL = (0<<0);
+
+    sprintf(myString, "Ziggurat method gauss generator time elapsed: %fms", (float)(start-end)/SYSTEM_CLOCK*1000);
+	print(myString);
+	newLine();
+}
+
+void test_ziggurat(int iterations, int seed)
+{
+	char myString[32];
+    float data;
+	setSeed(seed);
+	zigset();
+
+    for (int i=0; i<iterations; i++)
+    {
+        data = ziggurat();
+		sprintf(myString, "%f", data);
+		print(myString);
+		newLine();
+    }	
+}
+
 int main(void){
+	int iter = 500;
+	int seed = 110;
 	SystemInit();
 	STRELOAD = 0x00FFFFFF;
 	
-	time_gauss();
-	time_generator();
+	time_uniform(iter);
+	time_boxmuller(iter);
+	time_marsaglia(iter);
+	time_inverse(iter);
+	time_ziggurat(iter);
+	time_lfsr(iter);
+	
+	
+	//test_uniform(iter, seed); // PASS
+	//test_boxmuller(iter, seed); // PASS
+	//test_marsaglia(iter, seed); // PASS
+	//test_inverse(iter, seed); // PASS
+	//test_ziggurat(iter, seed); // PASS
+	//test_lfsr(iter, seed); // PASS
+	
+    return 0;
 }
