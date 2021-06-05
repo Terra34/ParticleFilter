@@ -2,12 +2,7 @@
 #include <float.h>
 #include <stdlib.h>
 #include "particleFilter.h"
-
-
-float pow2(float x)
-{
-	return x*x;
-}
+#include "helpers.h"
 
 int searchSorted(float* arr, float r, int numParticles){
     /*
@@ -76,8 +71,8 @@ void initializeFilter(	float **particles, float **copyParticles, float *_particl
     *copyParticles = _copyParticles;
     for (int i=0; i<numParticles; i++){
         weights[i] = resetWeights;
-        _particles[i*2] = (float)rand() / RAND_MAX * 360 - 180;
-        _particles[i*2 + 1] = (float)rand() / RAND_MAX * 360 - 180;
+        _particles[i*2] = rand() / RAND_MAX * 360 - 180;
+        _particles[i*2 + 1] = rand() / RAND_MAX * 360 - 180;
     }
 }
 						
@@ -146,6 +141,38 @@ void predictUpdateGauss(float *particles, float *weights, float *meas, float *pi
 		*sum_weights += weights[i];
 	}
 }
+						
+void predictUpdateZiggurat(float *particles, float *weights, float *meas, float *pitchRoll,
+						float *sum_weights, int numParticles, float predict_std, float t){
+	/*
+		particles => Needs to be a pointer to an array of length 2*numParticles
+		weights => Needs to be a pointer to an array of length numParticles
+		meas => A pointer to acquired measurements => an array of length 9 in [accx, accy, accz, gyrox, gyroy, gryoz, magx, magy, magz] format
+		pitchRoll => A pointer to an array that contains pitch and roll calculated from acc data
+	*/
+	*sum_weights = 0.f;
+	for (int i = 0; i < numParticles; i++){
+		particles[i*2] += meas[3] * t + ziggurat() * predict_std;
+		particles[i*2 + 1] += meas[4] * t + ziggurat() * predict_std;
+
+		
+		if (particles[i*2] > 180)
+			particles[i*2] -= 360;
+		else if (particles[i*2] < -180)
+			particles[i*2] += 360;
+
+		if (particles[i*2 + 1] > 180)
+			particles[i*2 + 1] -= 360;
+		else if (particles[i*2 + 1] < -180)
+			particles[i*2 + 1] += 360;
+		
+		weights[i] /= (pow2(particles[i*2] - pitchRoll[0]) 
+					+ pow2(particles[i*2 + 1] - pitchRoll[1]));
+		weights[i] += FLT_MIN;
+
+		*sum_weights += weights[i];
+	}
+}
 					
 void resampleEstimate(	float **particles, float **copyParticles, float *weights, 
 						float sum_weights, int numParticles, float resetWeights, 
@@ -186,7 +213,7 @@ void resampleEstimate(	float **particles, float **copyParticles, float *weights,
 	}
 
 	while (k < numParticles){
-		x = (float)rand() * sum_residual / RAND_MAX;
+		x = rand() * sum_residual / RAND_MAX;
 		indexes[k++] = searchSorted(residuals, x, numParticles);
 	}
 

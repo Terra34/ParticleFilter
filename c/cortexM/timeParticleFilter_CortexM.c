@@ -19,6 +19,8 @@
 #include "helpers.h"
 #include "particleFilter.h"
 
+#define SYSTEM_CLOCK	(100000000UL) /*	HCLK frequency	*/
+
 /*******************************************************************/
 
 #define STCTRL      (*( (volatile uint32_t *) 0xE000E010 ))
