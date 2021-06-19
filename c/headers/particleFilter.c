@@ -4,6 +4,41 @@
 #include "particleFilter.h"
 #include "helpers.h"
 
+float coef;
+float invStdSqr;
+
+void setNorm(float std){
+	coef = 1/(std * sqrt(2*PI));
+	invStdSqr = 2 * pow2(std);
+	return;
+}
+
+float normProb(float x, float mean)
+{
+	/*
+		p(x|mu, std)
+	*/
+	return coef * exp(-1 * pow2(x - mean) / invStdSqr);
+}
+
+float getMax(float f1, float f2, float f3){
+	float max = f1;
+	if (f2 > max)
+		max = f2;
+	if (f3 > max)
+		max = f3;
+	return max;
+}
+
+float getMin(float f1, float f2, float f3){
+	float min = f1;
+	if (f2 < min)
+		min = f2;
+	if (f3 < min)
+		min = f3;
+	return min;
+}
+
 int searchSorted(float* arr, float r, int numParticles){
     /*
         arr => Array that needs to be searched
@@ -60,6 +95,25 @@ float getYaw(float* fS, float* meas){
    return atan2(-YH, XH) * 180 / PI;
 }
 
+void initializeFilterGaussianSim(	float **particles, float **copyParticles, float *_particles, float *_copyParticles, 
+									float *weights, int numParticles, float resetWeights, float updateStd){
+	/*
+										GAUSSIAN SIMILARITY MEASURE IN UPDATE STEP
+		_particles => Needs to be a pointer to an array of length 2*numParticles
+		_copyParticles => Needs to be a pointer to an array of length 2*numParticles
+		weights => Needs to be a pointer to an array of length numParticles
+	*/
+	*particles = _particles;
+    *copyParticles = _copyParticles;
+    for (int i=0; i<numParticles; i++){
+        weights[i] = resetWeights;
+        _particles[i*2] = rand() / RAND_MAX * 360 - 180;
+        _particles[i*2 + 1] = rand() / RAND_MAX * 360 - 180;
+    }
+	setNorm(updateStd);
+}
+
+
 void initializeFilter(	float **particles, float **copyParticles, float *_particles, float *_copyParticles, 
 						float *weights, int numParticles, float resetWeights){
 	/*
@@ -75,6 +129,40 @@ void initializeFilter(	float **particles, float **copyParticles, float *_particl
         _particles[i*2 + 1] = rand() / RAND_MAX * 360 - 180;
     }
 }
+
+void predictUpdateGaussianSim(	float *particles, float *weights, float *meas, float *pitchRoll,
+								float *sum_weights, int numParticles, float predict_std, float t){
+	/*
+									GAUSSIAN SIMILARITY MEASURE IN UPDATE STEP
+		particles => Needs to be a pointer to an array of length 2*numParticles
+		weights => Needs to be a pointer to an array of length numParticles
+		meas => A pointer to acquired measurements => an array of length 9 in [accx, accy, accz, gyrox, gyroy, gryoz, magx, magy, magz] format
+		pitchRoll => A pointer to an array that contains pitch and roll calculated from acc data
+	*/
+	*sum_weights = 0.f;
+	for (int i = 0; i < numParticles; i++){
+		particles[i*2] += meas[3] * t + ziggurat() * predict_std;
+		particles[i*2 + 1] += meas[4] * t + ziggurat() * predict_std;
+
+
+		if (particles[i*2] > 180)
+			particles[i*2] -= 360;
+		else if (particles[i*2] < -180)
+			particles[i*2] += 360;
+
+		if (particles[i*2 + 1] > 180)
+			particles[i*2 + 1] -= 360;
+		else if (particles[i*2 + 1] < -180)
+			particles[i*2 + 1] += 360;
+
+		
+		weights[i] *= normProb(particles[i*2], pitchRoll[0]) * normProb(particles[i*2 + 1], pitchRoll[1]);
+		weights[i] += FLT_MIN;
+
+		*sum_weights += weights[i];
+	}
+}
+
 						
 void predictUpdate(	float *particles, float *weights, float *meas, float *pitchRoll,
 					float *sum_weights, int numParticles, float predict_std, float t, 
@@ -108,6 +196,8 @@ void predictUpdate(	float *particles, float *weights, float *meas, float *pitchR
 		*sum_weights += weights[i];
 	}
 }
+					
+
 					
 void predictUpdateGauss(float *particles, float *weights, float *meas, float *pitchRoll,
 						float *sum_weights, int numParticles, float predict_std, float t, 
@@ -168,6 +258,45 @@ void predictUpdateZiggurat(float *particles, float *weights, float *meas, float 
 		
 		weights[i] /= (pow2(particles[i*2] - pitchRoll[0]) 
 					+ pow2(particles[i*2 + 1] - pitchRoll[1]));
+		weights[i] += FLT_MIN;
+
+		*sum_weights += weights[i];
+	}
+}
+						
+void predictUpdateZigguratFix(	float *particles, float *weights, float *meas, float *pitchRoll,
+								float *sum_weights, int numParticles, float predict_std, float t){
+	/*
+		particles => Needs to be a pointer to an array of length 2*numParticles
+		weights => Needs to be a pointer to an array of length numParticles
+		meas => A pointer to acquired measurements => an array of length 9 in [accx, accy, accz, gyrox, gyroy, gryoz, magx, magy, magz] format
+		pitchRoll => A pointer to an array that contains pitch and roll calculated from acc data
+	*/
+	float sim1, sim2, sim3, temp;
+	*sum_weights = 0.f;
+	for (int i = 0; i < numParticles; i++){
+		particles[i*2] += meas[3] * t + ziggurat() * predict_std;
+		particles[i*2 + 1] += meas[4] * t + ziggurat() * predict_std;
+
+
+		if (particles[i*2] > 180)
+			particles[i*2] -= 360;
+		else if (particles[i*2] < -180)
+			particles[i*2] += 360;
+
+		if (particles[i*2 + 1] > 180)
+			particles[i*2 + 1] -= 360;
+		else if (particles[i*2 + 1] < -180)
+			particles[i*2 + 1] += 360;
+
+		sim1 = pow2(particles[i*2] - pitchRoll[0]);
+		sim2 = pow2(particles[i*2] - 360 - pitchRoll[0]);
+		sim3 = pow2(particles[i*2] + 360 - pitchRoll[0]);
+		temp = getMin(sim1, sim2, sim3);
+		sim1 = pow2(particles[i*2 + 1] - pitchRoll[1]);
+		sim2 = pow2(particles[i*2 + 1] - 360 - pitchRoll[1]);
+		sim3 = pow2(particles[i*2 + 1] + 360 - pitchRoll[1]);
+		weights[i] /= (temp + getMin(sim1, sim2, sim3));
 		weights[i] += FLT_MIN;
 
 		*sum_weights += weights[i];
@@ -236,4 +365,46 @@ void resampleEstimate(	float **particles, float **copyParticles, float *weights,
 	filterState[0] /= numParticles;
 	filterState[1] /= numParticles;
 
+}
+						
+
+void predictUpdateGaussianSimFix(	float *particles, float *weights, float *meas, float *pitchRoll,
+									float *sum_weights, int numParticles, float predict_std, float t){
+	/*
+									GAUSSIAN SIMILARITY MEASURE IN UPDATE STEP
+		FIXES EDGE CASES IN SIMILARITY UPDATE -> A LOT MORE COMPUTATIONALY EXPENSIVE
+		particles => Needs to be a pointer to an array of length 2*numParticles
+		weights => Needs to be a pointer to an array of length numParticles
+		meas => A pointer to acquired measurements => an array of length 9 in [accx, accy, accz, gyrox, gyroy, gryoz, magx, magy, magz] format
+		pitchRoll => A pointer to an array that contains pitch and roll calculated from acc data
+	*/
+	float sim1, sim2, sim3, temp;
+	*sum_weights = 0.f;
+	for (int i = 0; i < numParticles; i++){
+		particles[i*2] += meas[3] * t + ziggurat() * predict_std;
+		particles[i*2 + 1] += meas[4] * t + ziggurat() * predict_std;
+
+
+		if (particles[i*2] > 180)
+			particles[i*2] -= 360;
+		else if (particles[i*2] < -180)
+			particles[i*2] += 360;
+
+		if (particles[i*2 + 1] > 180)
+			particles[i*2 + 1] -= 360;
+		else if (particles[i*2 + 1] < -180)
+			particles[i*2 + 1] += 360;
+
+		sim1 = normProb(particles[i*2], pitchRoll[0]);
+		sim2 = normProb(particles[i*2] - 360, pitchRoll[0]);
+		sim3 = normProb(particles[i*2] + 360, pitchRoll[0]);
+		temp = getMax(sim1, sim2, sim3);
+		sim1 = normProb(particles[i*2 + 1], pitchRoll[1]);
+		sim1 = normProb(particles[i*2 + 1] - 360, pitchRoll[1]);
+		sim1 = normProb(particles[i*2 + 1] + 360, pitchRoll[1]);
+		weights[i] *= temp * getMax(sim1, sim2, sim3);
+		weights[i] += FLT_MIN;
+
+		*sum_weights += weights[i];
+	}
 }

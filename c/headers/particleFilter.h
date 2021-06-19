@@ -18,8 +18,16 @@ void predictUpdateGauss(float *particles, float *weights, float *meas, float *pi
 						struct gaussGenState *state);
 void predictUpdateZiggurat(float *particles, float *weights, float *meas, float *pitchRoll,
 						float *sum_weights, int numParticles, float predict_std, float t);
+void predictUpdateZigguratFix(	float *particles, float *weights, float *meas, float *pitchRoll,
+								float *sum_weights, int numParticles, float predict_std, float t);
 void resampleEstimate(	float **particles, float **copyParticles, float *weights, 
 						float sum_weights, int numParticles, float resetWeights, 
 						float *filterState);
-
+						
+void initializeFilterGaussianSim(	float **particles, float **copyParticles, float *_particles, float *_copyParticles, 
+									float *weights, int numParticles, float resetWeights, float updateStd);
+void predictUpdateGaussianSim(	float *particles, float *weights, float *meas, float *pitchRoll,
+								float *sum_weights, int numParticles, float predict_std, float t);
+void predictUpdateGaussianSimFix(	float *particles, float *weights, float *meas, float *pitchRoll,
+									float *sum_weights, int numParticles, float predict_std, float t);
 #endif
